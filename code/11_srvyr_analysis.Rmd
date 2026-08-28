@@ -1,0 +1,507 @@
+---
+title: "11_srvyr_analysis"
+output: html_document
+---
+
+# Survey Analysis
+
+```{r setup}
+library(here)
+library(openxlsx)
+library(srvyr)
+library(tidyverse)
+
+casper_2026 <- readRDS(here("data/casper_2026_clean.rds"))
+casper_combined <- readRDS(here("data/casper_combined.rds"))
+
+# Convert to srvyr design
+srv_design <- as_survey_design(casper_2026,
+                               ids = Cluster_Number,
+                               weights = weight)
+
+# Function for getting summaries of factors
+# NOTE: Can only accept 1 variable at a time
+summarize_factor <- function(var_name) {
+  
+  # TODO: Consider keeping NA's, why are we removing?
+  a <- srv_design %>%
+    # .data[[demo_vars]] tells R to look in the data for a column name, in this case, from the list demo_vars and drops missing
+    filter(!is.na(.data[[var_name]]))
+  
+  # Break if all data are NA
+  if(nrow(a)==0) return(NULL)
+  
+  a %>%
+    # grouping by values in each variable
+    group_by(.data[[var_name]]) %>%
+    summarize(
+      # count of responses for each variable
+      Frequency = n(),
+      Estimated_HH = round(survey_total(vartype = "var"), 0),
+      # Calculates the weighted percentage of the population that falls into this category
+      # The vartype = "ci" tells R to automatically calculate the 95% CIs
+      Percent = round(survey_mean(vartype = c("ci", "se"), na.rm = TRUE) * 100, 2)) %>%
+    # lists var_names in a column called category
+    mutate(Variable = var_name, Category = .data[[var_name]]) %>%
+    select(Variable, Category, Frequency, Estimated_HH, Percent, Percent_low, Percent_upp, Percent_se)
+}
+
+# Function for getting summaries of numerics
+summarize_numeric <- function(var_name) {
+  median_results <- srv_design %>%
+    summarize(
+      median = survey_quantile(.data[[var_name]], quantiles = 0.5, na.rm = TRUE, vartype = "ci")
+    )
+  
+  tibble(
+    Variable = var_name,
+    median = median_results$median_q50 ,
+    median_LCI = median_results$median_q50_low ,
+    median_UCI = median_results$median_q50_upp,
+  )
+}
+```
+
+## Tables
+
+```{r tables}
+# TODO: These aren't numeric variables, so this doesn't work
+
+# Tables -----------------------------------------------------------------------
+# Means
+numeric_vars <- c("Total_Hh_Members")
+factor_vars <- c("Phys_Health", "Ment_Health", "Community_Connected")
+
+mean_table <- map(numeric_vars, summarize_numeric) %>%
+  list_rbind()
+mean_table
+
+median_table <- map(factor_vars, summarize_factor) %>%
+  list_rbind()
+median_table
+```
+
+This code doesn't seem to be working. It seems like the `srvyr` functions like
+`survey_total` and `survey_mean` aren't being fed a column to do math on.
+
+```{r demog}
+# Demographics -----------------------------------------------------------------
+# List of categorical variables to summarize
+demo_vars <- c("Infants_2", "Kids_2", "Adults_2", "Elders_2", "keiki", "Own_Rent",
+               "Insurance_Loss", "Language")
+
+demo_table <- map(demo_vars, summarize_factor) %>%
+  list_rbind()
+demo_table
+```
+
+## Evaculation Planning
+
+```{r evac_planning}
+# Evacuation Planning
+# List of categorical variables to summarize
+evac_vars <- c("Comm_Plan", "Meeting_Place", "Important_Docs",
+               "Med_Equip","Backup_Power",                   #not sure if these belong here
+               "Tsunami_Zone_Familiar", "Tsunami_Zone_Info",           
+               "Wildfires_Protection","Receive_Alerts","Kema_Familiar",
+               "Cat1", "Cat2", "Cat3", "Cat4", "Cat5",
+               "Barrier","Additional_Evac_Needs")
+
+# Combine results
+evac_table <- map(evac_vars, summarize_factor) %>%
+  list_rbind()
+evac_table
+```
+
+## Infectious Diseases
+
+```{r infectious_dease}
+# Infectious Diseases
+# List of categorical variables to summarize
+ID_vars <- c("Mosquito_Concern", "Mosquito_Breeding", "Measles_Aware",
+             "Chickenpox_Aware", "Measles_Concern", "Chickenpox_Concern",
+             "Vaccines_Important")
+
+# Combine results
+ID_table <- map(ID_vars, summarize_factor) %>%
+  list_rbind()
+ID_table
+```
+
+## General
+
+```{r general}
+# General Questions
+# List of categorical variables to summarize
+gen_vars <- c("Rent_Concern", "Food_Last", "Food_Support", "Naloxone", 
+              "Ment_Health", "Phys_Health", "Community_Connected",
+              "Often_Gather", "Often_Groups", "Specific_Doctor",
+              "Provider_Within_Year", "Skip_Med_Care", "Concerns_Needs")
+
+# Combine results
+gen_table <- map(gen_vars, summarize_factor) %>%
+  list_rbind()
+gen_table
+```
+
+## Languages
+
+```{r languages}
+# TODO: These aren't variables, there's a "Language_Other" column, but it isn't clean
+
+# #Languages
+# lang_vars <- c("Ilocano", "Japanese", "Mandarin", "Hawaiian", "Pidgin",
+#                "Spanish", "Tagalog", "Thai", "Visayan")
+# 
+# # Combine results
+# lang_table <- map(lang_vars, summarize_factor) %>%
+#   list_rbind()
+# lang_table
+```
+
+## Combine & Export
+
+```{r combine}
+
+#combine tables into one with each on a different sheet
+# 1. Put your individual summary tables into a named list
+my_sheets <- list(
+  "Demo_Table"    = demo_table,
+  "Evac_Table"    = evac_table,
+  "ID_table" = ID_table,
+  "Gen_table" = gen_table
+  #, "Lang_table" = lang_table
+  )
+
+# 2. Export them all into one file with different sheets
+write.xlsx(my_sheets, file = "../Data/CASPER_2026_data_tables.xlsx")
+
+# Export tables ----------------------------------------------------------------
+saveRDS(srv_design, file = here("data/srv_design.rds"))
+saveRDS(demo_table, file = here("data/demo_table.rds"))
+saveRDS(evac_table, file = here("data/evac_table.rds"))
+saveRDS(ID_table, file = here("data/id_table.rds"))
+saveRDS(gen_table, file = here("data/gen_table.rds"))
+```
+
+# Kids
+
+```{r kids}
+# Keiki -------------------------------------------------------------------
+# 2x2 weighted cross-tab
+srv_design %>%
+  group_by(keiki, Food_Last) %>%
+  summarize(
+    n = unweighted(n()),
+    Weighted_n = survey_total(),
+    Percent = survey_mean(proportion = TRUE, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+srv_design %>%
+  group_by(keiki, Vaccines_Important) %>%
+  summarize(
+    n = unweighted(n()),
+    Weighted_n = survey_total(),
+    Percent = survey_mean(proportion = TRUE, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+# Statistical Testing
+
+```{r stat_tests}
+# Chi square tests --------------------------------------------------------
+# srv_design for full dataset across years
+srv_design_full <- as_survey_design(combined_data, ids = Clusternum, weights = Weight)
+
+
+# Electric dependent 25 v 26 ----------------------------------------------
+table(combined_data$Electric_dependent, combined_data$Year)
+
+look <- combined_data %>% 
+  filter(Electric_dependent != "Unsure",
+         Electric_dependent != "Declined")
+
+table(look$Electric_dependent, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2025, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Electric_dependent, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+
+```
+
+# Wildfire Analysis
+
+```{r wildfires}
+
+# Wildfires 2024 v 2026 ---------------------------------------------------
+table(combined_data$Wildfiremeasures, combined_data$Year)
+
+look<-combined_data %>% 
+  filter(Wildfiremeasures != "Unsure",
+         Wildfiremeasures != "Declined")
+
+table(look$Wildfiremeasures, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2024, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Wildfiremeasures, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+
+
+wildfire <- c("Wildfiremeasures")
+
+summarize_wildfire <- function(wildfire) {srv_design_full %>%
+    group_by(Year, .data[[wildfire]],.drop = FALSE) %>%
+    summarize(
+      Frequency = n(),
+      Estimated_HH = round(survey_total(vartype = NULL), 0),
+      Percent = round(survey_mean(vartype = c("ci", "se"), 
+                                  na.rm = TRUE) * 100, 2) 
+    ) %>%
+    mutate(Variable = wildfire, Category = .data[[wildfire]]) %>%
+    select(Variable, Category, Frequency, Estimated_HH, Percent, 
+           Percent_low, Percent_upp, Percent_se)
+}
+
+
+# Combine results
+wildfire_table <- map_dfr(wildfire, summarize_wildfire) %>% 
+  filter(Year %in% c(2024, 2026))
+
+```
+
+
+
+```{r public_shelter}
+
+# Public Shelter first year v 2026 ----------------------------------------
+table(combined_data$Cat5, combined_data$Year)
+
+look<-combined_data %>% 
+  mutate(Cat5 = case_when(
+    Cat5 == "Friend/family's home" ~ "other",
+    Cat5 == "Other" ~ "other",
+    Cat5 == "Shelter in place (at home)" ~ "other",
+    Cat5 == "Shelter in place in at home" ~ "other",
+    Cat5 == "Workplace" ~ "other",
+    TRUE   ~ Cat5 # Handles anything that didn't match above
+  )) %>% 
+  filter(Cat5 != "Unsure",
+         Cat5 != "Declined")
+
+table(look$Cat5, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2019, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Receive_alerts, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+```
+
+```{r tsunami}
+# tsunami zone 2024 v 2026 ------------------------------------------------
+# data under two different variable names
+table(combined_data$Evac_zone_familiar, combined_data$Year)
+table(combined_data$Tsunamizone, combined_data$Year)
+new<-combined_data %>% 
+  mutate(tsunami_new = coalesce(Evac_zone_familiar, Tsunamizone))
+
+table(new$tsunami_new, new$Year)
+
+look<-new %>% 
+  filter(tsunami_new != "Unsure")
+
+table(look$tsunami_new, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2024, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + tsunami_new, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+```
+
+```{r alerts}
+# alerts 2019 v 2026 ------------------------------------------------------
+table(combined_data$Receive_alerts, combined_data$Year)
+
+look<-combined_data %>% 
+  filter(Receive_alerts != "Unsure")%>% 
+  filter(Year %in% c(2019,2026))
+
+table(look$Receive_alerts, look$Year) 
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2019, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Receive_alerts, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+
+```
+
+```{r measles}
+# measles concern very&somewhat vs not 2019 v 2026 ------------------------
+table(combined_data$Measlesconcern, combined_data$Year)
+
+look<-combined_data %>% 
+  mutate(Measlesconcern = case_when(
+    Measlesconcern == "Very concerned" ~ "concerned",
+    Measlesconcern == "Somewhat concerned" ~ "concerned",
+    # Vaccinate == "Unsure" ~ "Not important",
+    # Vaccinate == "Declined" ~ "Not important",
+    TRUE   ~ Measlesconcern # Handles anything that didn't match above
+  )) %>% 
+  filter(Measlesconcern != "Unsure",
+         Measlesconcern != "Declined")
+
+table(look$Measlesconcern, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2019, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Measlesconcern, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+```
+
+```{r vaccines}
+# vaccines not important 2025 v 2026 --------------------------------------
+table(combined_data$Vaccinate, combined_data$Year)
+
+look<-combined_data %>% 
+  mutate(Vaccinate = case_when(
+    Vaccinate == "Not important" ~ "Not important",
+    Vaccinate == "Somewhat important" ~ "Not important",
+    # Vaccinate == "Unsure" ~ "Not important",
+    # Vaccinate == "Declined" ~ "Not important",
+    TRUE   ~ Vaccinate # Handles anything that didn't match above
+  )) %>% 
+  filter(Vaccinate != "Unsure",
+         Vaccinate != "Declined")
+
+table(look$Vaccinate, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2025, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Vaccinate, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+
+
+# vaccines important 2019 v 2026 ------------------------------------------
+
+table(combined_data$Vaccinate, combined_data$Year)
+
+look<-combined_data %>% 
+  mutate(Vaccinate = case_when(
+    Vaccinate == "Not important" ~ "Not important",
+    Vaccinate == "Somewhat important" ~ "Not important",
+    # Vaccinate == "Unsure" ~ "Not important",
+    # Vaccinate == "Declined" ~ "Not important",
+    TRUE   ~ Vaccinate # Handles anything that didn't match above
+  )) %>% 
+  filter(Vaccinate != "Unsure",
+         Vaccinate != "Declined") %>% 
+  filter(Year %in% c(2019, 2026))
+
+table(look$Vaccinate, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2019, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Vaccinate, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+```
+
+```{r rent_concern}
+# concern for rent (very and somewhat vs none) 2025 v 2026 ----------------
+table(combined_data$Rent_concern, combined_data$Year)
+
+look<-combined_data %>% 
+  mutate(Rent_concern = case_when(
+    Rent_concern == "Very concerned" ~ "concerned",
+    Rent_concern == "Somewhat concerned" ~ "concerned",
+    # Vaccinate == "Unsure" ~ "Not important",
+    # Vaccinate == "Declined" ~ "Not important",
+    TRUE ~ Rent_concern # Handles anything that didn't match above
+  )) %>% 
+  filter(Rent_concern != "Unsure",
+         Rent_concern != "Declined")
+
+table(look$Rent_concern, look$Year)
+
+srv_design_look <- as_survey_design(look, ids = Clusternum, weights = Weight)
+
+survey_filtered <- srv_design_look %>%
+  filter(Year %in% c(2025, 2026))
+
+weighted_chisq <- svychisq(
+  formula = ~ Year + Rent_concern, 
+  design = survey_filtered,
+  statistic = "F" #“F”, “Chisq”, “Wald”, “adjWald”, “lincom”, “saddlepoint”, “wls-score”
+)
+
+print(weighted_chisq)
+
+```
+

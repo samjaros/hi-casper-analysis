@@ -1,7 +1,7 @@
 # Ignore R user files
 .RData
 .Rhistory
-,Rproj.user/*
+.Rproj.user
 
 # Ignore git files
 .git
@@ -11,3 +11,9 @@
 *.rds
 *.xlsx
 *.xls
+*.pdf
+*.docx
+*.doc
+
+# Ignore secrets
+*secret*
