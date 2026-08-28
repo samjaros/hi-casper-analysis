@@ -1,0 +1,13 @@
+# Ignore R user files
+.RData
+.Rhistory
+,Rproj.user/*
+
+# Ignore git files
+.git
+
+# Ignore data
+*.csv
+*.rds
+*.xlsx
+*.xls
