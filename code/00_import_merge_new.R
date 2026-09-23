@@ -30,9 +30,9 @@ casper_2026 <- casper_import_raw %>%
     surv_id = `ec5_uuid`,                            # Universal ID
     surv_datetime = `created_at`,                    # When survey was started
     surv_upload_datetime = `uploaded_at`,            # When survey was saved to cloud
-    surv_surveyor = `2_Surveyor_Name`,                 # Surveyor that collected data
-    surv_cluster = `3_Cluster_Number`,                 # Cluster for this survey
-    surv_survey_num = `4_Survey_Number`,               # Survey number within this cluster
+    surv_surveyor = `2_Surveyor_Name`,               # Surveyor that collected data
+    surv_cluster = `3_Cluster_Number`,               # Cluster for this survey
+    surv_survey_num = `4_Survey_Number`,             # Survey number within this cluster
     # Demographic variables
     demo_n_hh = `6_Including_yourself`,              # Q1 Total HH members
     demo_n_u2 = `7_How_many_of_those_`,              # Q1 <2y

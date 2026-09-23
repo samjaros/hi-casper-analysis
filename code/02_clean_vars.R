@@ -75,10 +75,53 @@ casper_clean <- casper_clean %>%
     )
   )
 
+# TODO: Probably a more useful language breakdown
+# Maybe
+#   - No English
+#   - Only English
+#   - English and at least 1 other
+# Should Hawaiian be tracked at all?
+
+# Natural disaster experience --------------------------------------------------
+# Get data as indicator columns
+casper_clean <- casper_clean %>%
+  # Keep raw data in separate column
+  # "Other" data could be overwritten, so rename
+  mutate(NDexp_types = NDexp_type,
+         NDexp_type_other_ans = NDexp_type_other) %>%
+  # Get longer version of data
+  separate_longer_delim(
+    cols = NDexp_type,
+    delim = ", "
+  ) %>%
+  # Clean up names to use as columns
+  mutate(
+    NDexp_type = replace_values(
+      NDexp_type,
+      "Hurricane/Tropical Storm" ~ "hurricane",
+      "Flooding"                 ~ "flood",
+      "Earthquake"               ~ "earthquake",
+      "Tsunami"                  ~ "tsunami",
+      "Landslide/Mudslide"       ~ "landslide",
+      "Volcanic Eruption"        ~ "eruption",
+      "Wildfire"                 ~ "wildfire",
+      "Other"                    ~ "other",
+      "Unsure"                   ~ "unsure",
+      NA                         ~ "none"
+    ),
+    dummy = "Yes"
+  ) %>%
+  pivot_wider(
+    names_from = NDexp_type,
+    names_glue = "NDexp_type_{NDexp_type}",
+    values_from = dummy,
+    values_fill = "No"
+  )
+
 # Factor Yes/No Variables ------------------------------------------------------
 # Correct Declined to Decline
 casper_clean <- casper_clean %>%
-  mutate(across(everything(), ~str_replace(.x, "Decline$", "Declined")))
+  mutate(across(where(is.character), ~str_replace(.x, "Decline$", "Declined")))
 
 # Get Yes/No columns
 yesno_options <- c("Yes", "No", "Unsure", "Declined")
