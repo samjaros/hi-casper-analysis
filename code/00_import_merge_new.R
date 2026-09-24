@@ -5,18 +5,18 @@
 #   - Calculate weighting
 # Merge new year data with previous data
 
-
 # Raw data comes from epicollect
 
 library(tidyverse)
 
 # Options ======================================================================
 total.hh.sample <- 4054 # Number of households in this year's sampling frame
-total.clusters <- 30
+total.clusters <- 29
 # 2026 W Hawaii - using number from tax maps & ArcGIS, not census
 
 # Import Data ==================================================================
-casper_import_raw <- read_csv("./raw_data/form-1__2026-west-hawaii-casper.csv")
+casper_import_raw <- read_csv("./raw_data/form-1__2026-west-hawaii-casper.csv",
+                              show_col_types = F)
 
 # Rename Columns ===============================================================
 casper_2026 <- casper_import_raw %>%
@@ -104,11 +104,11 @@ casper_2026 <- casper_import_raw %>%
   )
 
 # Weighting ====================================================================
-# TODO: Should weight be calculated later so that it can change if methods change?
 
+# Check number of clusters
 paste0("Number of clusters in data: ",
        length(unique(casper_2026$surv_cluster)))
-# Should be 29, one cluster will not appear because there are no willing HH
+# Should be 29, one cluster will not appear because there are no eligible HH
 
 # Calculate the weights
 casper_2026 <- casper_2026 %>%
@@ -118,7 +118,7 @@ casper_2026 <- casper_2026 %>%
 
 # Validation ===================================================================
 
-# Check for duplicate surveys, should be 0 rows
+# Check for duplicate surveys, should be 0 rows --------------------------------
 dupe_surveys <- casper_2026 %>%
   group_by(surv_cluster, surv_survey_num) %>%
   filter(n() > 1)
@@ -128,14 +128,28 @@ if (nrow(dupe_surveys) > 0) {
   View(dupe_surveys)
 }
 
-# Check for mismatching household counts
+# Check for mismatching household counts ---------------------------------------
 hh_count_off <- casper_2026 %>%
-  filter(demo_n_hh != demo_n_u2 + demo_n_2to17 + demo_n_18to64 + demo_n_65p)
+  filter(
+    demo_n_hh == 0 |
+    demo_n_hh != demo_n_u2 + demo_n_2to17 + demo_n_18to64 + demo_n_65p
+  )
 
 if (nrow(hh_count_off) > 0) {
-  warning("At least one survey has a mismatch between the total household members and the sum of members by age.")
+  warning("At least one survey has a mismatch between the total household members and the sum of members by age.",
+          call. = F)
   View(hh_count_off)
 }
 
 # Output =======================================================================
 saveRDS(casper_2026, "./data/casper_2026_raw.rds")
+
+# Compare Weighting ============================================================
+# Examine the difference in weights between 29 and 30 clusters
+wgt_compare <- casper_2026 %>%
+  select(surv_id, surv_cluster, surv_survey_num) %>%
+  group_by(surv_cluster) %>%
+  mutate(surv_weight29 = total.hh.sample / (n() * 29),
+         surv_weight30 = total.hh.sample / (n() * 30),
+         weight_diff = surv_weight29 - surv_weight30,
+         delta_pct = weight_diff / surv_weight30)
