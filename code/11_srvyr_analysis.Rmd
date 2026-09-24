@@ -1,6 +1,6 @@
 ---
 title: "2026 Kona CASPER Estimates"
-subtitle: "v1 (2026-09-22)"
+subtitle: "v2 (2026-09-23)"
 output:
   pdf_document: default
   html_document: default
@@ -26,11 +26,13 @@ srv_design <- as_survey_design(casper_clean,
                                weights = surv_weight)
 
 # Worker Functions =============================================================
-# Function for getting summaries of factors
+# Function for getting summaries of factors ------------------------------------
 # NOTE: Can only accept 1 variable at a time
 summarize_factor <- function(var_name) {
   
   # TODO: Consider keeping NA's, why are we removing?
+  #  - How does it handle places where the data are skipped?
+  #  - Want to show % of people where whole is number that saw the question
   a <- srv_design %>%
     filter(!is.na(.data[[var_name]]))
   
@@ -71,7 +73,12 @@ summarize_factor <- function(var_name) {
     mutate(Variable = var_name, Category = .data[[var_name]]) %>%
     # Bring in factor levels that may have been blank
     full_join(level_df, by = c("Variable", "Category")) %>%
-    mutate(Category = factor(Category, levels = level_df$Category)) %>%
+    mutate(Category = factor(Category, levels = level_df$Category),
+           pct_ci = if_else(
+             is.na(Percent),
+             "-",
+             paste0(round(Percent_low, 2), " - ", round(Percent_upp, 2)))
+           ) %>%
     arrange(Category) %>%
     # Only keep wanted cols
     select(Question = Variable,
@@ -79,24 +86,40 @@ summarize_factor <- function(var_name) {
            N = Frequency,
            `Est HH`=Estimated_HH,
            Pct=Percent,
-           `Low CI` = Percent_low,
-           `Up CI` = Percent_upp,
-           `Std Err` = Percent_se)
+           `Pct 95CI` = pct_ci,
+           `Pct SE` = Percent_se)
 }
 
 # Function for getting summaries of numerics -----------------------------------
-# TODO: Why use CI for median rather than 25th and 75th %tiles?
 summarize_numeric <- function(var_name) {
-  median_results <- srv_design %>%
+  num_results <- srv_design %>%
     summarize(
-      median = survey_quantile(.data[[var_name]], quantiles = 0.5, na.rm = TRUE, vartype = "ci")
+      median = survey_quantile(
+        .data[[var_name]],
+        quantiles = c(0.25, 0.5, 0.75),
+        na.rm = TRUE,
+        vartype = "ci"
+      ),
+      mean = survey_mean(
+        .data[[var_name]],
+        vartype = "ci",
+        na.rm = T
+      )
+    ) %>%
+    mutate(
+      median_ci = paste0(median_q50_low, " - ", median_q50_upp),
+      iqr = paste0(median_q25, " - ", median_q75),
+      mean = round(mean, 2),
+      mean_ci = paste0(round(mean_low, 2), " - ", round(mean_upp, 2))
     )
   
   tibble(
     Question = var_name,
-    Median = median_results$median_q50 ,
-    `Low CI` = median_results$median_q50_low ,
-    `Up CI` = median_results$median_q50_upp,
+    Median = num_results$median_q50,
+    `Median 95CI` = num_results$median_ci,
+    IQR = num_results$iqr,
+    Mean = num_results$mean,
+    `Mean 95CI` = num_results$mean_ci
   )
 }
 ```
@@ -220,7 +243,7 @@ health_table <- map(health_vars, summarize_factor) %>%
 knitr::kable(health_table)
 ```
 
-```{r combine}
+```{r export}
 # Put tables into Excel file ---------------------------------------------------
 # Combine tables into a list so that each is its own sheet
 my_sheets <- list(
