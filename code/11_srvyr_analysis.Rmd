@@ -73,12 +73,7 @@ summarize_factor <- function(var_name) {
     mutate(Variable = var_name, Category = .data[[var_name]]) %>%
     # Bring in factor levels that may have been blank
     full_join(level_df, by = c("Variable", "Category")) %>%
-    mutate(Category = factor(Category, levels = level_df$Category),
-           pct_ci = if_else(
-             is.na(Percent),
-             "-",
-             paste0(round(Percent_low, 2), " - ", round(Percent_upp, 2)))
-           ) %>%
+    mutate(Category = factor(Category, levels = level_df$Category)) %>%
     arrange(Category) %>%
     # Only keep wanted cols
     select(Question = Variable,
@@ -86,7 +81,8 @@ summarize_factor <- function(var_name) {
            N = Frequency,
            `Est HH`=Estimated_HH,
            Pct=Percent,
-           `Pct 95CI` = pct_ci,
+           `Pct 95CI L` = Percent_low,
+           `Pct 95CI U` = Percent_upp,
            `Pct SE` = Percent_se)
 }
 
@@ -107,19 +103,19 @@ summarize_numeric <- function(var_name) {
       )
     ) %>%
     mutate(
-      median_ci = paste0(median_q50_low, " - ", median_q50_upp),
       iqr = paste0(median_q25, " - ", median_q75),
-      mean = round(mean, 2),
-      mean_ci = paste0(round(mean_low, 2), " - ", round(mean_upp, 2))
+      mean = round(mean, 2)
     )
   
   tibble(
     Question = var_name,
     Median = num_results$median_q50,
-    `Median 95CI` = num_results$median_ci,
+    `Median 95CI L` = num_results$median_q50_low,
+    `Median 95CI U` = num_results$median_q50_upp,
     IQR = num_results$iqr,
     Mean = num_results$mean,
-    `Mean 95CI` = num_results$mean_ci
+    `Mean 95CI L` = num_results$mean_low,
+    `Mean 95CI U` = num_results$mean_upp
   )
 }
 ```
@@ -135,7 +131,7 @@ knitr::kable(demo_n_table)
 
 demo_factor <- c(
   "demo_hh_infants", "demo_hh_kids", "demo_hh_adults", "demo_hh_elders",
-  "demo_own_rent", "demo_langs"
+  "demo_own_rent", "demo_langs", "demo_langs_cat"
 )
 demo_table <- map(demo_factor, summarize_factor) %>%
   list_rbind()
@@ -258,10 +254,17 @@ my_sheets <- list(
 write.xlsx(my_sheets, file = here("KonaCASPER2026_datatables.xlsx"))
 
 # Export tables ----------------------------------------------------------------
-saveRDS(srv_design, file = here("data/srv_design.rds"))
-saveRDS(demo_table, file = here("data/demo_table.rds"))
-saveRDS(NDexp_table, file = here("data/NDexp_table.rds"))
-saveRDS(evac_table, file = here("data/evac_table.rds"))
-saveRDS(supp_table, file = here("data/supp_table.rds"))
-saveRDS(health_table, file = here("data/health_table.rds"))
+# Make column names safe by replacing " " with "_"
+saveRDS(srv_design %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/srv_design.rds"))
+saveRDS(demo_table %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/demo_table.rds"))
+saveRDS(NDexp_table %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/NDexp_table.rds"))
+saveRDS(evac_table %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/evac_table.rds"))
+saveRDS(supp_table %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/supp_table.rds"))
+saveRDS(health_table %>% rename_with(~str_replace_all(.x, " ", "_")),
+        file = here("data/health_table.rds"))
 ```

@@ -10,7 +10,7 @@
 library(tidyverse)
 
 # Options ======================================================================
-total.hh.sample <- 4054 # Number of households in this year's sampling frame
+total.hh.sample <- 30806 # Number of households in this year's sampling frame
 total.clusters <- 29
 # 2026 W Hawaii - using number from tax maps & ArcGIS, not census
 

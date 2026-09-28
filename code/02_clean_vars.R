@@ -10,13 +10,19 @@ library(lubridate)
 casper_2026 <- readRDS("./data/casper_2026_raw.rds")
 
 # Fix Invalid Obs ==============================================================
+casper_fix <- casper_2026
+
+# Exclude invalid obs ----------------------------------------------------------
+# Remove survey where respondant was just housesitting
+casper_fix <- casper_fix %>%
+  filter(is.na(demo_own_rent_other) | demo_own_rent_other!="House sitting")
 
 # Mismatch household count -----------------------------------------------------
 # If there is no mismatch, all good
 # If the HH total is 1, randomly assign adult or elder
 # All other mismatches leave alone (for now)
 set.seed(123)
-casper_fix <- casper_2026 %>%
+casper_fix <- casper_fix %>%
   # Define "wrong" surveys & provide a random number for coin flips
   mutate(
     t_wrong_1 = 
