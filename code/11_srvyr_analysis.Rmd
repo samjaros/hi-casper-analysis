@@ -1,6 +1,6 @@
 ---
-title: "2026 Kona CASPER Estimates"
-subtitle: "v2 (2026-09-23)"
+title: "2026 Kona CASPER Data Tables"
+subtitle: "v6 (2026-09-29)"
 output:
   pdf_document: default
   html_document: default
@@ -176,7 +176,7 @@ table(casper_clean$NDexp_not_safe)
 # Evacuation planning variables
 evac_vars <- c(
   "evac_chronic_disease", "evac_phys_disease", "evac_ment_disease",
-  "evac_assist", "evac_assist_org",
+  "evac_any_disease", "evac_assist", "evac_assist_org",
   "evac_comm_plan", "evac_meeting_place", "evac_impt_docs",
   paste0("evac_hur_cat", 1:5),
   "evac_tsunami_zone", "evac_prevent_fire",
@@ -215,6 +215,7 @@ supp_vars <- c(
   "supp_aware_14d",
   "supp_water_3d", "supp_water_7d", "supp_water_14d",
   "supp_food_3d", "supp_food_7d", "supp_food_14d",
+  "supp_fw_3d", "supp_fw_7d", "supp_fw_14d",
   "supp_need_meds", "supp_meds_7d", "supp_meds_14d",
   "supp_fire_exting", "supp_smoke_detect"
 )
@@ -229,8 +230,8 @@ knitr::kable(supp_table)
 ```{r health}
 # Health variables
 health_vars <- c(
-  "supp_mosquito_deet", "supp_mosquito_prevent", "supp_vax_important",
-  "hlth_food_ran_out", "hlth_physical", "hlth_mental"
+  "supp_mosquito_deet", "supp_mosquito_prevent", "supp_mosquito_prevent_cat",
+  "supp_vax_important", "hlth_food_ran_out", "hlth_physical", "hlth_mental"
 )
 
 # Combine results
