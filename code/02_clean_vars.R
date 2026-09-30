@@ -6,6 +6,10 @@
 library(tidyverse)
 library(lubridate)
 
+# Set to true to examine language values
+# Do this if you're running the code on a new survey
+do.lang.check <- F
+
 # Import =======================================================================
 casper_2026 <- readRDS("./data/casper_2026_raw.rds")
 
@@ -130,16 +134,18 @@ casper_clean <- casper_clean %>%
 
 # Language Data Checks
 # First 2 columns have the raw data, second two have processed data
-casper_clean %>%
-  select(c(starts_with("demo_lang"), -starts_with("demo_lang_"))) %>%
-  distinct() %>%
-  View("Lang Processed Check")
-
-# First 2 columns have the raw data, rest have indicators. Every language should be indicated
-casper_clean %>%
-  select(c(starts_with("demo_language"), starts_with("demo_lang_"))) %>%
-  distinct() %>%
-  View("Lang Indicator Check")
+if(do.lang.check) {
+  casper_clean %>%
+    select(c(starts_with("demo_lang"), -starts_with("demo_lang_"))) %>%
+    distinct() %>%
+    View("Lang Processed Check")
+  
+  # First 2 columns have the raw data, rest have indicators. Every language should be indicated
+  casper_clean %>%
+    select(c(starts_with("demo_language"), starts_with("demo_lang_"))) %>%
+    distinct() %>%
+    View("Lang Indicator Check")
+}
 
 # Natural disaster experience --------------------------------------------------
 # Get data as indicator columns
@@ -178,6 +184,68 @@ casper_clean <- casper_clean %>%
     names_glue = "NDexp_type_{NDexp_type}",
     values_from = dummy,
     values_fill = "No"
+  )
+
+# Any chronic condition --------------------------------------------------------
+casper_clean <- casper_clean %>%
+  rowwise() %>%
+  mutate(evac_any_disease = 
+           if_else(any(evac_chronic_disease=="Yes",
+                       evac_phys_disease=="Yes", 
+                       evac_ment_disease=="Yes"),
+                   "Yes",
+                   "No")
+  )
+
+# Both food and water ----------------------------------------------------------
+casper_clean <- casper_clean %>%
+  replace_na(
+    list(
+      supp_water_7d = "No",
+      supp_water_14d = "No",
+      supp_food_7d = "No",
+      supp_food_14d = "No"
+    )
+  ) %>%
+  # If someone doesn't have a 7 day supply of meds, they don't have a 14 day supply either
+  mutate(
+    supp_meds_14d = if_else(
+      supp_meds_7d=="No",
+      "No",
+      supp_meds_14d
+    )
+  )
+
+casper_clean$supp_fw_3d <- 
+  if_else(
+    casper_clean$supp_water_3d == "Yes" & casper_clean$supp_food_3d == "Yes",
+    "Yes",
+    "No",
+    missing = "No"
+  )
+
+casper_clean$supp_fw_7d <- 
+  if_else(
+    casper_clean$supp_water_7d == "Yes" & casper_clean$supp_food_7d == "Yes",
+    "Yes",
+    "No",
+    missing = "No"
+  )
+
+casper_clean$supp_fw_14d <- 
+  if_else(
+    casper_clean$supp_water_14d == "Yes" & casper_clean$supp_food_14d == "Yes",
+    "Yes",
+    "No",
+    missing = "No"
+  )
+
+# Fill No's in Meds ------------------------------------------------------------
+casper_clean$supp_meds_14d <-
+  if_else(
+    casper_clean$supp_need_meds == "Yes" & is.na(casper_clean$supp_meds_14d),
+    "No",
+    casper_clean$supp_meds_14d
   )
 
 # Factor Yes/No Variables ------------------------------------------------------
@@ -235,6 +303,14 @@ casper_clean$supp_mosquito_prevent <- factor(
     "Never", "Unsure", "Declined"
   )
 )
+
+casper_clean$supp_mosquito_prevent_cat <- casper_clean$supp_mosquito_prevent %>%
+  fct_collapse(
+    "Every 8+ days" = c("Monthly", "A few times per year", "Once a year")
+  ) %>% 
+  fct_relevel(
+    c("Daily", "Weekly", "Every 8+ days", "Never", "Unsure")
+  )
 
 casper_clean$hlth_food_ran_out <- factor(
   casper_clean$hlth_food_ran_out,
