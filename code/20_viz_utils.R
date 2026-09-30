@@ -26,7 +26,8 @@ yesno.fill <- list(
   "Yes"      = last(color.palette),
   "No"       = color.palette[1],
   "Unsure"   = other.palette[1],
-  "Declined" = last(other.palette)
+  "Declined" = last(other.palette),
+  "Accent"   = color.palette[4]
 )
 
 prep.fill <- list(
@@ -35,6 +36,14 @@ prep.fill <- list(
   "Not Prepared"      = color.palette[1],
   "Unsure"            = last(other.palette)
 )
+
+supp.fill <- list(
+  "Food" = color.palette[3],
+  "Water" = color.palette[4],
+  "Both" = last(color.palette)
+)
+
+lowhi.fill <- c(other.palette[1], color.palette)
 
 # Font -------------------------------------------------------------------------
 windowsFonts(Calibri = windowsFont("Calibri"))
