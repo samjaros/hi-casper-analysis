@@ -27,7 +27,8 @@ yesno.fill <- list(
   "No"       = color.palette[1],
   "Unsure"   = other.palette[1],
   "Declined" = last(other.palette),
-  "Accent"   = color.palette[4]
+  "Accent"   = color.palette[4],
+  "None"     = color.palette[3]
 )
 
 prep.fill <- list(
@@ -40,7 +41,7 @@ prep.fill <- list(
 supp.fill <- list(
   "Food" = color.palette[3],
   "Water" = color.palette[4],
-  "Both" = last(color.palette)
+  "Both" = color.palette[3]
 )
 
 lowhi.fill <- c(other.palette[1], color.palette)

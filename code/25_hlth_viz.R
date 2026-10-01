@@ -162,6 +162,7 @@ overall_bars <- hlth_table %>%
     fill = guide_legend(
       direction = "horizontal",
       nrow = 2,
+      byrow = T,
       position = "bottom",
       reverse = TRUE)
   ) +

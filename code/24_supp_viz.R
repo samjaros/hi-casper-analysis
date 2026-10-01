@@ -3,6 +3,7 @@
 # Supplies Visualizations
 
 library(here)
+library(ggpattern)
 
 source(here("code/20_viz_utils.R"))
 
@@ -40,11 +41,20 @@ food_water_bars <- supp_table %>%
   ) %>%
   ggplot(
     aes(x = x_val, y = Pct, ymin = Pct_95CI_L, ymax = Pct_95CI_U,
-        fill = fill_val)
+        fill = fill_val, pattern = fill_val)
   ) +
-  geom_col(position = position_dodge(width = dodge_width)) +
-  geom_errorbar(color = errbar.color, width = 0.2, linewidth = 0.6,
-                position = position_dodge(width = dodge_width)) +
+  geom_col_pattern(
+    pattern_colour = NA,
+    pattern_fill = supp.fill[2],
+    pattern_density = 0.5,
+    position = position_dodge(width = dodge_width)
+  ) +
+  geom_errorbar(
+    color = errbar.color,
+    width = 0.2,
+    linewidth = 0.6,
+    position = position_dodge(width = dodge_width)
+  ) +
   geom_text(
     aes(label = format.percent(Pct), y = Pct/2),
     color = labtext.color,
@@ -56,6 +66,10 @@ food_water_bars <- supp_table %>%
     position = position_dodge(width = dodge_width)
   ) +
   scale_fill_manual(name = NULL, values = supp.fill) +
+  scale_pattern_manual(
+    name = NULL,
+    values = c("Food" = "none", "Water" = "none", "Both" = "stripe")
+  ) +
   scale_y_continuous(
     labels = label_percent(scale=1),
     expand = expansion(mult = c(0, 0.05))

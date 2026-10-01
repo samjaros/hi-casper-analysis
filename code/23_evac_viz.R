@@ -29,7 +29,7 @@ conditions_bars <- evac_table %>%
   ) %>%
   plot.bar(
     x_var = "x_val", fill_var = "fill_val", 
-    title = "Conditions Delaying Evacuation"
+    title = "Physical and Mental Health Conditions"
   )
 conditions_bars
 save.plot(conditions_bars, here("images/evac_condition_bars.png"))
@@ -102,6 +102,7 @@ hurr_bars <- evac_table %>%
     fill = guide_legend(
       direction = "horizontal",
       nrow = 2,
+      byrow = T,
       position = "bottom",
       reverse = TRUE)
   ) +
@@ -131,7 +132,7 @@ save.plot(hurr_bars, here("images/evac_hurr_bars.png"))
 # Evacuation Barriers ==========================================================
 evac_barrier_bars <- evac_table %>%
   filter(
-    Question == "evac_main_barrier",
+    Question == "evac_barrier_recat",
     !is.na(Pct)
   ) %>%
   mutate(
@@ -140,23 +141,25 @@ evac_barrier_bars <- evac_table %>%
         Answer,
         `Concern about leaving pets` = "Concern about leaving pet(s)",
         `Leaving property vacant` = "Concern about leaving property vacant",
-        `Don't know where to go` = "Uncertainty about where to go",
-        `Household will evacuate` = "No barriers - household will evacuate",
-        `Household won't evacuate`= "No barriers - household would choose not to evacuate"
+        `Don't know where to go` = "Uncertainty about where to go"
       ) %>%
       fct_relevel(
         "Concern about leaving pets",
         "Don't know where to go",
+        "Road damage or traffic",
         "Leaving property vacant",
         "Health or mobility issues",
         "Lack of transportation",
         "Inconvenient or expensive",
         "Unsure",
         "Other",
-        "Household will evacuate",
-        "Household won't evacuate"
+        "No barriers"
       ) %>% fct_rev(),
-    fill_val = "Yes"
+    fill_val = recode_values(
+      x_val,
+      "No barriers" ~ "None",
+      default       = "Yes"
+    )
   ) %>%
   plot.bar(
     x_var = "x_val", fill_var = "fill_val",

@@ -34,7 +34,7 @@ ND_type_bars <- NDexp_table %>%
     fill_val = recode_values(
       x_val,
       "Unsure" ~ "Declined",
-      "None"   ~ "Declined",
+      "None"   ~ "None",
       default = "Yes" 
     )
   ) %>%
