@@ -12,7 +12,7 @@ evac_table <- readRDS(here("data/evac_table.rds"))
 # Conditions ===================================================================
 conditions_bars <- evac_table %>%
   filter(
-    str_detect(Question, "evac_.*_disease"),
+    Question %in% c("evac_chronic_disease", "evac_phys_disease", "evac_ment_disease"),
     Answer == "Yes"
   ) %>%
   mutate(
