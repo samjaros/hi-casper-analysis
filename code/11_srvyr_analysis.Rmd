@@ -1,6 +1,6 @@
 ---
 title: "2026 Kona CASPER Data Tables"
-subtitle: "v6 (2026-09-29)"
+subtitle: "v8 (2026-09-30)"
 output:
   pdf_document: default
   html_document: default
@@ -131,8 +131,14 @@ knitr::kable(demo_n_table)
 
 demo_factor <- c(
   "demo_hh_infants", "demo_hh_kids", "demo_hh_adults", "demo_hh_elders",
-  "demo_own_rent", "demo_langs", "demo_langs_cat"
+  "demo_own_rent", "demo_langs_cat"
 )
+# Add individual languages
+demo_factor <- c(
+  demo_factor,
+  names(casper_clean)[str_detect(names(casper_clean), "demo_lang_.*")]
+)
+
 demo_table <- map(demo_factor, summarize_factor) %>%
   list_rbind()
 knitr::kable(demo_table)
@@ -143,7 +149,7 @@ knitr::kable(demo_table)
 ```{r disaster_experience}
 # Disaster experience variables
 NDexp_vars <- c(
-  "NDexp_affected", "NDexp_displaced", "NDexp_damage",
+  "NDexp_affected", "NDexp_displaced", "NDexp_displaced_cat", "NDexp_damage",
   "NDexp_type_hurricane", "NDexp_type_none", "NDexp_type_flood",
   "NDexp_type_tsunami", "NDexp_type_earthquake", "NDexp_type_eruption",
   "NDexp_type_landslide", "NDexp_type_wildfire", "NDexp_type_unsure",
@@ -180,7 +186,8 @@ evac_vars <- c(
   "evac_comm_plan", "evac_meeting_place", "evac_impt_docs",
   paste0("evac_hur_cat", 1:5),
   "evac_tsunami_zone", "evac_prevent_fire",
-  "evac_main_barrier", "evac_main_info_source", "evac_alert_signup"
+  "evac_main_barrier", "evac_barrier_recat", "evac_main_info_source", 
+  "evac_alert_signup"
 )
 
 # Combine results
@@ -238,6 +245,12 @@ health_vars <- c(
 health_table <- map(health_vars, summarize_factor) %>%
   list_rbind()
 knitr::kable(health_table)
+
+# Numeric Likert analysis
+n_likert <- c("supp_vax_important_n", "hlth_physical_n", "hlth_mental_n")
+map(n_likert, summarize_numeric) %>%
+  list_rbind() %>%
+  knitr::kable()
 ```
 
 ```{r export}

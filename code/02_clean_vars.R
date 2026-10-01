@@ -274,11 +274,16 @@ casper_clean <- casper_clean %>%
   mutate(across(all_of(datetime_cols), ~with_tz(.x, tzone = "HST")))
 
 # Factor Likert Variables ------------------------------------------------------
+# Also create numeric versions for mean/median analysis
 likert_options <- c("1", "2", "3", "4", "5", "Unsure", "Declined")
 likert_cols <- c("supp_vax_important", "hlth_physical", "hlth_mental")
 
 casper_clean <- casper_clean %>%
-  mutate(across(all_of(likert_cols), ~factor(.x, levels = likert_options)))
+  mutate(across(all_of(likert_cols),
+                ~factor(.x, levels = likert_options))) %>%
+  mutate(across(all_of(likert_cols), 
+                ~suppressWarnings(as.numeric(as.character(.x))),
+                .names = "{.col}_n"))
 
 # Hurricane Variables ----------------------------------------------------------
 hur_options <- c(
@@ -331,6 +336,21 @@ casper_clean$evac_main_barrier <- factor(
   )
 )
 
+casper_clean <- casper_clean %>%
+  mutate(
+    evac_barrier_recat = factor(case_when(
+      !is.na(evac_barrier_other) & 
+        str_detect(
+          str_to_lower(evac_barrier_other),
+          "road| rd|driveway|traffic|highway|route"
+        )                                           ~ "Road damage or traffic",
+      str_detect(
+        str_to_lower(evac_main_barrier),
+        "no barriers")                              ~ "No barriers",
+      T                                             ~ evac_main_barrier
+    ))
+  )
+
 casper_clean$NDexp_damage <- factor(
   casper_clean$NDexp_damage,
   levels = c(
@@ -352,6 +372,15 @@ casper_clean$evac_main_info_source <- factor(
     "Community, friends, or family", "Newspaper or magazines", 
     "Other", "Unsure", "Declined"
   )
+)
+
+casper_clean$NDexp_displaced_cat <- factor(
+  case_when(
+    casper_clean$NDexp_displaced_days <= 1 ~ "<=1 day",
+    casper_clean$NDexp_displaced_days <= 7 ~ "2-7 days",
+    !is.na(casper_clean$NDexp_displaced_days) ~ ">7 days"
+  ),
+  levels = c("<=1 day", "2-7 days", ">7 days")
 )
 
 # Output =======================================================================
