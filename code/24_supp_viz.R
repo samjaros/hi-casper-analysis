@@ -110,9 +110,9 @@ fire_safety_bars <- supp_table %>%
     aes(x = x_val, y = Pct, ymin = Pct_95CI_L, ymax = Pct_95CI_U,
         fill = fill_val)
   ) +
-  geom_col(position = position_dodge(width = fw_dodge_width)) +
+  geom_col(position = position_dodge(width = dodge_width)) +
   geom_errorbar(color = errbar.color, width = 0.2, linewidth = 0.6,
-                position = position_dodge(width = fw_dodge_width)) +
+                position = position_dodge(width = dodge_width)) +
   geom_text(
     aes(label = format.percent(Pct), y = Pct/2),
     color = labtext.color,
@@ -121,7 +121,7 @@ fire_safety_bars <- supp_table %>%
     size.unit = "pt",
     hjust = 0.5,
     vjust = 0.5,
-    position = position_dodge(width = fw_dodge_width)
+    position = position_dodge(width = dodge_width)
   ) +
   scale_fill_manual(name = NULL, values = color.palette[c(2, 5)]) +
   scale_y_continuous(
