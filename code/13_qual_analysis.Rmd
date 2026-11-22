@@ -1,0 +1,146 @@
+---
+title: "Process and Analyze Qualitative Data"
+subtitle: "v2 (2026-11-21)"
+output:
+  pdf_document: default
+classoption: landscape
+---
+
+```{r setup, include = F}
+# Import =======================================================================
+library(here)
+library(openxlsx)
+library(srvyr)
+library(tidyverse)
+
+casper_qual <- readRDS(here("data/casper_kauai26_recovery_data_clean.rds")) %>%
+  select(starts_with("surv_")) %>%
+  left_join(
+    readRDS(here("data/casper_kauai26_recovery_data_clean_wqual.rds")),
+    by = join_by(surv_id)
+  )
+
+qual_surv <- as_survey_design(casper_qual,
+                              ids = surv_cluster,
+                              weights = surv_weight)
+
+# Worker Functions =============================================================
+# Function for getting summaries of factors ------------------------------------
+# NOTE: Can only accept 1 variable at a time
+summarize_factor <- function(var_name) {
+  
+  # TODO: Consider keeping NA's, why are we removing?
+  #  - How does it handle places where the data are skipped?
+  #  - Want to show % of people where whole is number that saw the question
+  a <- qual_surv %>%
+    filter(!is.na(.data[[var_name]]))
+  
+  # Break if all data are NA
+  if (nrow(a)==0){
+    warning("No non-missing observations for ", var_name)
+    return(NULL)
+  }
+
+  # Make sure this variable is a factor
+  if (!is.factor(pull(a, var_name))) {
+    a <- a %>%
+      mutate(across(all_of(var_name), as.factor))
+  }
+  
+  # Get factor levels for later joining
+  level_df <- data.frame(
+    Category = levels(pull(a, var_name))
+  )
+  level_df$Variable <- var_name
+  
+  a %>%
+    # grouping by values in each variable
+    group_by(.data[[var_name]]) %>%
+    summarize(
+      # count of responses for each variable
+      Frequency = n(),
+      Estimated_HH = round(survey_total(vartype = "var"), 0),
+      # Calculates the weighted percentage of the population that falls into this category
+      # The vartype = "ci" tells R to automatically calculate the 95% CIs
+      Percent = round(
+        survey_prop(vartype = c("ci", "se"), 
+                    prop_method = "likelihood",
+                    proportion = TRUE
+                    ) * 100, 
+        2)) %>%
+    # lists var_names in a column called category
+    mutate(Variable = var_name, Category = .data[[var_name]]) %>%
+    # Bring in factor levels that may have been blank
+    full_join(level_df, by = c("Variable", "Category")) %>%
+    mutate(Category = factor(Category, levels = level_df$Category)) %>%
+    arrange(Category) %>%
+    # Only keep wanted cols
+    select(Question = Variable,
+           Answer = Category,
+           N = Frequency,
+           `Est HH`=Estimated_HH,
+           Pct=Percent,
+           `Pct 95CI L` = Percent_low,
+           `Pct 95CI U` = Percent_upp,
+           `Pct SE` = Percent_se)
+}
+```
+
+# Changes to Plans for Future Storms
+
+**After the hurricane, are there any changes your HH will make to your emergency preparedness plans or supplies to be more prepared for future storms?**
+
+Yes respondents only, manually coded, up to 3 options.
+
+```{r q11, echo = F}
+post_hurr_changes <- names(casper_qual)[startsWith(names(casper_qual), "supp_post_hurr_ch_")]
+
+post_hurr_changes_table <- map(post_hurr_changes, summarize_factor) %>%
+  list_rbind()
+knitr::kable(post_hurr_changes_table)
+```
+
+# Information without Radio
+
+**After the hurricane, our island's two emergency radio stations, KKCR and Kong, were down in many areas. Where did your HH go for information during this time?**
+
+Manually coded, single code.
+
+```{r q19, echo = F}
+info_wo_radio <- names(casper_qual)[startsWith(names(casper_qual), "imp_info_no_radio_")]
+
+info_wo_radio_table <- summarize_factor(info_wo_radio)
+knitr::kable(info_wo_radio_table)
+```
+
+# Most Important Government Focus
+
+**What is the most important issue you think government agencies should focus on for continued recovery of our island?**
+
+Manually coded, single code.
+
+```{r q23, echo = F}
+govt_focus <- names(casper_qual)[startsWith(names(casper_qual), "imp_govt_focus_")]
+
+govt_focus_table <- summarize_factor(govt_focus)
+knitr::kable(govt_focus_table)
+```
+
+```{r export, include = F}
+all_qual_data <- bind_rows(
+  post_hurr_changes_table,
+  info_wo_radio_table,
+  govt_focus_table
+)
+
+saveRDS(all_qual_data, here("data/qual_table.rds"))
+
+write.xlsx(
+  list(
+    `Q11 Changes` = post_hurr_changes_table,
+    `Q19 Info Sources` = info_wo_radio_table,
+    `Q23 Govt Focus` = govt_focus_table
+  ),
+  here("data/Kauai26R Qual Data Tables.xlsx")
+)
+```
